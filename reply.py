@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 def createReply(flight):
     reply = flight['weekDay'] + flight['date'] + '\n'
     for f in flight['flights']:

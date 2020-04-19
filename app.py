@@ -1,8 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import logging
 
 import telegram
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
 from data import getFlightsByDay
 from reply import createReply
 from values import TELEGRAM_BOT_TOKEN
@@ -14,14 +17,18 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 logger = logging.getLogger(__name__)
 
-def start(update, context):
-    update.message.reply_text("""
-Hey!
-Looking for a fly with Evrowings.       
-Then let us start with the date you want to fly
+ORIGIN, DESTINATION, WEEK, FLIGHTS = range(4)
 
-Example: CGN,TXL,2020-12-12 
-    """, parse_mode=telegram.ParseMode.MARKDOWN)
+def start(update, context):
+    reply_keyboard = [['CGN', 'HAM', 'STR']]
+    update.message.reply_text("""
+    Hey!
+    Looking for a fly with Evrowings.       
+    Then let us start with the origin station you want to fly from
+    """, parse_mode=telegram.ParseMode.MARKDOWN,
+    reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+
+    return ORIGIN
 
 def echo(update, context):
     message = update.edited_message if (update.edited_message) else update.message
@@ -29,16 +36,45 @@ def echo(update, context):
     
     #context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
 
-    #destination, origin, date = message.text.split(',', 2)
-    #if (len(destination) != 3 or len(origin) != 3):
-    #    message.reply_text("use TLC to set the airports")
-    #    return
+    #markup = telegram.ReplyKeyboardMarkup([[telegram.KeyboardButton(text="Heyyy-%d" % getFakeId())]])
+    #message.reply_text("""hey""", parse_mode=telegram.ParseMode.MARKDOWN, reply_markup=markup)
     flights = getFlightsByDay()
     for flight in flights:
         message.reply_text(createReply(flight))
 
-def updateMsg(update, context):
-    logger.info("update")
+def origin(update, context):
+    origin = update.message.text
+    context.user_data['origin'] = origin
+    reply_keyboard = [['STR', 'HAM', 'TXL']]
+    update.message.reply_text("Alright, you want a fly from %s to:" % origin, reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+
+    return DESTINATION
+
+def destination(update, context):
+    destination = update.message.text
+    context.user_data['destination'] = destination
+    reply_keyboard = [['2020-11-16 2020-11-22', '2020-11-16 2020-11-22', '2020-11-16 2020-11-22']]
+    update.message.reply_text("You,ve choose flight %s-%s"
+        "Next select the week you want flight at." % (context.user_data['origin'], destination),
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+    return WEEK
+
+def week(update, context):
+    week = update.message.text
+    context.user_data['week'] = week
+    return FLIGHTS
+
+def flights(update, context):
+    return
+
+
+def cancel(update, context):
+    user = update.message.from_user
+    logger.info("User %s canceled the conversation.", user.first_name)
+    update.message.reply_text('Bye! Thank you for yousing our service.',
+                              reply_markup=ReplyKeyboardRemove())
+
+    return ConversationHandler.END
 
 def error(update, context):
     """Log Errors caused by Updates."""
@@ -54,14 +90,31 @@ def init():
     # Get the dispatcher to register handlers
     dp = updater.dispatcher
 
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
+
+        states={
+            ORIGIN: [MessageHandler(Filters.text, origin)],
+
+            DESTINATION: [MessageHandler(Filters.text, destination)],
+
+            WEEK: [MessageHandler(Filters.text, week)],
+            #           CommandHandler('skip', skip_location)],
+
+            FLIGHTS: [MessageHandler(Filters.text, flights)]
+        },
+
+        fallbacks=[CommandHandler('cancel', cancel)]
+    )
+
+    dp.add_handler(conv_handler)
+
     # on different commands - answer in Telegram
-    dp.add_handler(CommandHandler("start", start))
+    #dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
 
     # on noncommand i.e message - echo the message on Telegram
-    dp.add_handler(MessageHandler(Filters.text, echo))
-
-    #dp.add_handler(MessageHandler(Filters.update, updateMsg))
+    #dp.add_handler(MessageHandler(Filters.text, echo))
 
     # log all errors
     dp.add_error_handler(error)
