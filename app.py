@@ -35,10 +35,7 @@ def echo(update, context):
     #    return
     flights = getFlightsByDay()
     for flight in flights:
-        #context.bot.send_message
         message.reply_text(createReply(flight))
-    #update.message.reply_text(destination)
-    #update.message.reply_text(origin)
 
 def updateMsg(update, context):
     logger.info("update")
