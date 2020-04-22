@@ -6,7 +6,7 @@ import logging
 import telegram
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
-from data import get_flights_by_day
+from data import get_flights_by_day, fetch_weeks
 from reply import create_replay
 from values import TELEGRAM_BOT_TOKEN
 
@@ -49,18 +49,23 @@ def origin(update, context):
     context.user_data['origin'] = origin_station
     reply_keyboard = [['STR', 'HAM', 'TXL']]
     update.message.reply_text(f'Alright, you want a fly from {origin_station} to:',
-                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=True))
 
     return DESTINATION
 
 
-def destination(update, context):
+def select_week(update, context):
     destination = update.message.text
     context.user_data['destination'] = destination
-    reply_keyboard = [['2020-11-16 2020-11-22', '2020-11-16 2020-11-22', '2020-11-16 2020-11-22']]
-    update.message.reply_text("You,ve choose flight %s-%s"
+    origin = context.user_data['origin']
+    weeks = fetch_weeks(origin, destination)
+    reply_keyboard = []
+    for week in weeks:
+        reply_keyboard.append([f"{week['fromDateString']} {week['toDateString']}"])
+    #reply_keyboard = [['2020-11-16 2020-11-22', '2020-11-16 2020-11-22', '2020-11-16 2020-11-22']]
+    update.message.reply_text("You,ve choose flight %s-%s. "
                               "Next select the week you want flight at." % (context.user_data['origin'], destination),
-                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=True))
     return WEEK
 
 
@@ -76,11 +81,14 @@ def week(update, context):
 def flights(update, context):
     origin = context.user_data['origin']
     destination = context.user_data['destination']
+    week_days = context.user_data['week'].split(' ')
+
 
     logger.info("user select origin=%s and destination=%s", origin, destination)
 
-    flights = get_flights_by_day(origin, destination, "2020-11-16", "2020-11-22")
-    for flight in flights:
+    flights = get_flights_by_day(origin, destination, week_days[0], week_days[1])
+    #TODO short list used for testing
+    for flight in flights[:3]:
         update.message.reply_text(create_replay(flight))
 
 
@@ -114,7 +122,7 @@ def init():
         states={
             ORIGIN: [MessageHandler(Filters.text, origin)],
 
-            DESTINATION: [MessageHandler(Filters.text, destination)],
+            DESTINATION: [MessageHandler(Filters.text, select_week)],
 
             WEEK: [MessageHandler(Filters.text, week)],
             #           CommandHandler('skip', skip_location)],
