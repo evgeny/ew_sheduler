@@ -4,7 +4,7 @@
 import logging
 
 import telegram
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
 from data import get_flights_by_day, fetch_weeks
 from reply import create_replay
@@ -133,7 +133,7 @@ def init():
     dp = updater.dispatcher
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
+        entry_points=[CommandHandler('weekplanner', week_planner)],
 
         states={
             ORIGIN: [MessageHandler(Filters.text, origin)],
@@ -152,10 +152,8 @@ def init():
     dp.add_handler(conv_handler)
 
     # on different commands - answer in Telegram
-    # dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
-
-    dp.add_handler(CommandHandler("weekplanner", week_planner))
 
     # on noncommand i.e message - echo the message on Telegram
     # dp.add_handler(MessageHandler(Filters.text, echo))
