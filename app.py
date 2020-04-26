@@ -19,13 +19,30 @@ logger = logging.getLogger(__name__)
 ORIGIN, DESTINATION, WEEK, FLIGHTS = range(4)
 
 
+def help(update, context):
+    help_msg = """
+Commands:
+*/weekplanner* 
+    """
+    update.message.reply_text(help_msg, parse_mode=telegram.ParseMode.MARKDOWN)
+
+
 def start(update, context):
+    update.message.reply_text(
+"""Welcome to Eurowings Telegram Info Bot\. You can lookup for the following information
+*\/weekplanner* 
+To display all possible services use
+*\/help* commnand
+        """, parse_mode=telegram.ParseMode.MARKDOWN_V2)
+
+
+def week_planner(update, context):
     reply_keyboard = [['CGN', 'HAM', 'STR']]
     update.message.reply_text("""
-    Hey!
-    Looking for a fly with Evrowings.       
-    Then let us start with the origin station you want to fly from
-    """, parse_mode=telegram.ParseMode.MARKDOWN,
+Hey!
+Looking for a fly with Eurowings.       
+Then let us start with the origin station you want to fly from
+        """, parse_mode=telegram.ParseMode.MARKDOWN,
                               reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
 
     return ORIGIN
@@ -49,7 +66,8 @@ def origin(update, context):
     context.user_data['origin'] = origin_station
     reply_keyboard = [['STR', 'HAM', 'TXL']]
     update.message.reply_text(f'Alright, you want a fly from {origin_station} to:',
-                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=True))
+                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
+                                                               one_time_keyboard=True))
 
     return DESTINATION
 
@@ -62,20 +80,19 @@ def select_week(update, context):
     reply_keyboard = []
     for week in weeks:
         reply_keyboard.append([f"{week['fromDateString']} {week['toDateString']}"])
-    #reply_keyboard = [['2020-11-16 2020-11-22', '2020-11-16 2020-11-22', '2020-11-16 2020-11-22']]
     update.message.reply_text("You,ve choose flight %s-%s. "
                               "Next select the week you want flight at." % (context.user_data['origin'], destination),
-                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True, one_time_keyboard=True))
+                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
+                                                               one_time_keyboard=True))
     return WEEK
 
 
 def week(update, context):
     week = update.message.text
     context.user_data['week'] = week
-
     update.message.reply_text(f"You select the week on {week}")
     flights(update, context)
-    #return FLIGHTS
+    # return FLIGHTS
 
 
 def flights(update, context):
@@ -83,11 +100,10 @@ def flights(update, context):
     destination = context.user_data['destination']
     week_days = context.user_data['week'].split(' ')
 
-
     logger.info("user select origin=%s and destination=%s", origin, destination)
 
     flights = get_flights_by_day(origin, destination, week_days[0], week_days[1])
-    #TODO short list used for testing
+    # TODO short list used for testing
     for flight in flights[:3]:
         update.message.reply_text(create_replay(flight))
 
@@ -138,6 +154,8 @@ def init():
     # on different commands - answer in Telegram
     # dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
+
+    dp.add_handler(CommandHandler("weekplanner", week_planner))
 
     # on noncommand i.e message - echo the message on Telegram
     # dp.add_handler(MessageHandler(Filters.text, echo))
