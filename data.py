@@ -27,6 +27,22 @@ def fetch_weeks(departure, arrival):
     return json.loads(response.read())
 
 
+def fetch_stations(query):
+    url = f'https://mobile.eurowings.com/booking/scripts/WDB/WDBQuery.aspx?action=station&culture=en-GB&type=origin' \
+          f'&searchterm={query}'
+
+    response = urllib.request.urlopen(url)
+    return json.loads(response.read())
+
+
+def fetch_destination_stations(departure_tlc, query):
+    url = f'https://mobile.eurowings.com/booking/scripts/WDB/WDBQuery.aspx?action=station&culture=en-GB&type' \
+          f'=destination&searchterm={query}&restricted={departure_tlc}'
+
+    response = urllib.request.urlopen(url)
+    return json.loads(response.read())
+
+
 def get_flights_by_day(origin, destination, from_date, to_date):
     flights_by_day = []
     cal = fetch_calendar(origin, destination, from_date, to_date)
@@ -46,4 +62,4 @@ def get_flights_by_day(origin, destination, from_date, to_date):
 
 if __name__ == "__main__":
     # print(get_flights_by_day("CGN", "BER", "2020-11-16", "2020-11-22"))
-    print(fetch_weeks("HAM", "STR"))
+    print(fetch_stations("CGN"))
