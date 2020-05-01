@@ -6,7 +6,7 @@ import logging
 import telegram
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
-from data import get_flights_by_day, fetch_weeks, fetch_stations
+from data import get_flights_by_day, fetch_weeks, fetch_stations, fetch_destination_stations
 from reply import create_replay
 from values import TELEGRAM_BOT_TOKEN
 
@@ -17,7 +17,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 ORIGIN, DESTINATION, WEEK, FLIGHTS = range(4)
-ORIGIN_QUERY, ORIGIN_RESULT, ORIGIN_CONFIRM, DESTINATION_QUERY = range(4)
+ORIGIN_QUERY, DESTINATION_QUERY = range(2)
 
 DEPARTURE_CONV_BTN_DEST, DEPARTURE_CONV_BTN_CHANGE = range(2)
 
@@ -40,36 +40,33 @@ To display all possible services use
 
 
 def select_origin(update, context):
-    reply_keyboard = [['CGN', 'HAM', 'STR']]
-    update.message.reply_text("Enter the TLC or a airport name(at least three letters)",
-                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+    update.message.reply_text("Enter the TLC or a airport name(at least three letters)")
     return ORIGIN_QUERY
 
 
 def find_origin(update, context):
-    origin = update.message.text
-    stations = fetch_stations(origin)
+    stations = fetch_stations(update.message.text)
     reply_keyboard = []
     for station in stations:
-        # reply_keyboard.append([f"{station['label']}"])
-        reply_keyboard.append([InlineKeyboardButton(text=f"{station['label']}", callback_data=station['value'])])
-    update.message.reply_text(f"Select origin",
-                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
-                                                               one_time_keyboard=True))
-    return ORIGIN_RESULT
+        reply_keyboard.append(
+            [InlineKeyboardButton(text=f"{station['label']}", callback_data=f"{station['label']},{station['value']}")])
+
+    update.message.reply_text(f"Stations found:", reply_markup=InlineKeyboardMarkup(reply_keyboard))
+    return ORIGIN_QUERY
 
 
-def confirm_origin(update, context):
-    chosen_origin = update.message.text
-    context.user_data['departure'] = chosen_origin
+def station_btn_callback(update, context):
+    query = update.callback_query
+    # persist user chose
+    context.user_data['departure'] = query.data
+    query.answer()
 
     # show user next steps
     reply_keyboard = [[InlineKeyboardButton('Change departure', callback_data=str(DEPARTURE_CONV_BTN_CHANGE))],
                       [InlineKeyboardButton('Select destination', callback_data=str(DEPARTURE_CONV_BTN_DEST))]]
 
-    update.message.reply_text(f"Your departure station is {chosen_origin}. What you would like to do next?",
-                              reply_markup=InlineKeyboardMarkup(reply_keyboard))
-
+    query.message.reply_text(f"Your departure station is {query.data}. What you would like to do next?",
+                             reply_markup=InlineKeyboardMarkup(reply_keyboard))
     return DESTINATION_QUERY
 
 
@@ -78,13 +75,25 @@ def departure_buttons(update, context):
     query.answer()
 
     if query.data == str(DEPARTURE_CONV_BTN_DEST):
-        query.edit_message_text("Enter the departure station TLC or a airport name(at least three letters)")
+        query.edit_message_text("Enter the destination station TLC or a airport name(at least three letters)")
     else:
         query.edit_message_text("not implemented now")
 
 
 def find_destination(update, context):
-    update.message.reply_text("hey")
+    query = update.message.text
+    departure = context.user_data['departure']
+
+    update.message.reply_text(f"departure={departure}, destination query={query}")
+    # stations = fetch_destination_stations(origin)
+    # reply_keyboard = []
+    # for station in stations:
+    #     # reply_keyboard.append([f"{station['label']}"])
+    #     reply_keyboard.append([InlineKeyboardButton(text=f"{station['label']}", callback_data=station['value'])])
+    # update.message.reply_text(f"Select origin",
+    #                           reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
+    #                                                            one_time_keyboard=True))
+
 
 def week_planner(update, context):
     reply_keyboard = [['CGN', 'HAM', 'STR']]
@@ -173,9 +182,11 @@ def init():
         entry_points=[CommandHandler('origin', select_origin)],
 
         states={
-            ORIGIN_QUERY: [MessageHandler(Filters.text, find_origin)],
-            ORIGIN_RESULT: [MessageHandler(Filters.text, confirm_origin)],
-            DESTINATION_QUERY: [MessageHandler(Filters.text, find_destination)],
+            ORIGIN_QUERY: [MessageHandler(Filters.text, find_origin), CallbackQueryHandler(station_btn_callback)],
+            # ORIGIN_RESULT: [MessageHandler(Filters.text, find_origin),
+            #                CallbackQueryHandler(station_btn_callback)],
+            DESTINATION_QUERY: [MessageHandler(Filters.text, find_destination),
+                                CallbackQueryHandler(departure_buttons)],
         },
 
         fallbacks=[CommandHandler('cancel', cancel)]
@@ -205,7 +216,7 @@ def init():
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
 
-    dp.add_handler(CallbackQueryHandler(departure_buttons))
+    # dp.add_handler(CallbackQueryHandler(departure_buttons))
 
     # on noncommand i.e message - echo the message on Telegram
     # dp.add_handler(MessageHandler(Filters.text, echo))
