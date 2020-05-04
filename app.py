@@ -16,10 +16,11 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 logger = logging.getLogger(__name__)
 
-ORIGIN, DESTINATION, WEEK, FLIGHTS = range(4)
-ORIGIN_QUERY, DESTINATION_QUERY = range(2)
+# ORIGIN, DESTINATION, WEEK, FLIGHTS = range(4)
+ORIGIN_QUERY, DESTINATION_QUERY, WEEK_QUERY, WEEK, FLIGHTS = range(5)
 
-DEPARTURE_CONV_BTN_DEST, DEPARTURE_CONV_BTN_CHANGE = range(2)
+
+# DEPARTURE_CONV_CANCEL, DEPARTURE_CONV_BTN_CHANGE = range(2)
 
 
 def help(update, context):
@@ -55,79 +56,73 @@ def find_origin(update, context):
     return ORIGIN_QUERY
 
 
-def station_btn_callback(update, context):
+def departure_btn_callback(update, context):
     query = update.callback_query
-    # persist user chose
     context.user_data['departure'] = query.data
     query.answer()
 
     # show user next steps
-    reply_keyboard = [[InlineKeyboardButton('Change departure', callback_data=str(DEPARTURE_CONV_BTN_CHANGE))],
-                      [InlineKeyboardButton('Select destination', callback_data=str(DEPARTURE_CONV_BTN_DEST))]]
+    # reply_keyboard = [[InlineKeyboardButton('Change departure', callback_data=str(DEPARTURE_CONV_BTN_CHANGE))],
+    #                   [InlineKeyboardButton('Cancel', callback_data=str(DEPARTURE_CONV_CANCEL))]]
 
-    query.message.reply_text(f"Your departure station is {query.data}. What you would like to do next?",
-                             reply_markup=InlineKeyboardMarkup(reply_keyboard))
+    query.message.reply_text(f"Your departure station is {query.data}. Choose the destination airport")
+
     return DESTINATION_QUERY
 
 
-def departure_buttons(update, context):
-    query = update.callback_query
-    query.answer()
+# def departure_buttons(update, context):
+#     query = update.callback_query
+#     query.answer()
+#
+#     if query.data == str(DEPARTURE_CONV_BTN_CHANGE):
+#         return ORIGIN_QUERY
+#     else:
+#         query.edit_message_text("not implemented now")
 
-    if query.data == str(DEPARTURE_CONV_BTN_DEST):
-        query.edit_message_text("Enter the destination station TLC or a airport name(at least three letters)")
-    else:
-        query.edit_message_text("not implemented now")
+# return DESTINATION_QUERY
 
 
 def find_destination(update, context):
     query = update.message.text
     departure = context.user_data['departure']
 
-    update.message.reply_text(f"departure={departure}, destination query={query}")
-    # stations = fetch_destination_stations(origin)
-    # reply_keyboard = []
-    # for station in stations:
-    #     # reply_keyboard.append([f"{station['label']}"])
-    #     reply_keyboard.append([InlineKeyboardButton(text=f"{station['label']}", callback_data=station['value'])])
-    # update.message.reply_text(f"Select origin",
-    #                           reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
-    #                                                            one_time_keyboard=True))
+    # update.message.reply_text(f"departure={departure}, destination query={query}")
+    stations = fetch_destination_stations(departure.split(',')[1], query)
+    reply_keyboard = []
+    for station in stations:
+        reply_keyboard.append(
+            [InlineKeyboardButton(text=f"{station['label']}", callback_data=f"{station['label']},{station['value']}")])
+
+    update.message.reply_text(f"Stations found:", reply_markup=InlineKeyboardMarkup(reply_keyboard))
+
+    return DESTINATION_QUERY
 
 
-def week_planner(update, context):
-    reply_keyboard = [['CGN', 'HAM', 'STR']]
-    update.message.reply_text("""
-Hey!
-Looking for a fly with Eurowings.       
-Then let us start with the origin station you want to fly from
-        """, parse_mode=telegram.ParseMode.MARKDOWN,
-                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+def destination_btn_callback(update, context):
+    query = update.callback_query
+    context.user_data['destination'] = query.data
+    query.answer()
 
-    return ORIGIN
+    # show user next steps
+    # reply_keyboard = [[InlineKeyboardButton('Change departure', callback_data=str(DEPARTURE_CONV_BTN_CHANGE))],
+    #                   [InlineKeyboardButton('Cancel', callback_data=str(DEPARTURE_CONV_CANCEL))]]
 
+    query.message.reply_text(f"Your destination station is {query.data}. Please choose the week you want to travel in")
 
-def origin(update, context):
-    origin_station = update.message.text
-    context.user_data['origin'] = origin_station
-    reply_keyboard = [['STR', 'HAM', 'TXL']]
-    update.message.reply_text(f'Alright, you want a fly from {origin_station} to:',
-                              reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
-                                                               one_time_keyboard=True))
-
-    return DESTINATION
+    # return WEEK_QUERY
+    select_week(query.message, context)
 
 
-def select_week(update, context):
-    destination = update.message.text
-    context.user_data['destination'] = destination
-    origin = context.user_data['origin']
-    weeks = fetch_weeks(origin, destination)
+def select_week(message, context):
+    departure = context.user_data['departure']
+    destination = context.user_data['destination']
+
+    weeks = fetch_weeks(departure.split(',')[1], destination.split(',')[1])
     reply_keyboard = []
     for week in weeks:
         reply_keyboard.append([f"{week['fromDateString']} {week['toDateString']}"])
-    update.message.reply_text("You,ve choose flight %s-%s. "
-                              "Next select the week you want flight at." % (context.user_data['origin'], destination),
+    message.reply_text("You,ve choose flight %s-%s. "
+                              "Next select the week you want flight at." % (departure, destination),
                               reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
                                                                one_time_keyboard=True))
     return WEEK
@@ -138,7 +133,7 @@ def week(update, context):
     context.user_data['week'] = week
     update.message.reply_text(f"You select the week on {week}")
     flights(update, context)
-    # return FLIGHTS
+    return FLIGHTS
 
 
 def flights(update, context):
@@ -179,37 +174,21 @@ def init():
     dp = updater.dispatcher
 
     conv_select_route = ConversationHandler(
-        entry_points=[CommandHandler('origin', select_origin)],
+        entry_points=[CommandHandler('weekplanner', select_origin)],
 
         states={
-            ORIGIN_QUERY: [MessageHandler(Filters.text, find_origin), CallbackQueryHandler(station_btn_callback)],
-            # ORIGIN_RESULT: [MessageHandler(Filters.text, find_origin),
-            #                CallbackQueryHandler(station_btn_callback)],
+            ORIGIN_QUERY: [MessageHandler(Filters.text, find_origin), CallbackQueryHandler(departure_btn_callback)],
             DESTINATION_QUERY: [MessageHandler(Filters.text, find_destination),
-                                CallbackQueryHandler(departure_buttons)],
-        },
-
-        fallbacks=[CommandHandler('cancel', cancel)]
-    )
-
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('weekplanner', week_planner)],
-
-        states={
-            ORIGIN: [MessageHandler(Filters.text, origin)],
-
-            DESTINATION: [MessageHandler(Filters.text, select_week)],
-
+                                CallbackQueryHandler(destination_btn_callback)],
+            WEEK_QUERY: [MessageHandler(Filters.text, select_week)],
             WEEK: [MessageHandler(Filters.text, week)],
-            #           CommandHandler('skip', skip_location)],
-
             FLIGHTS: [MessageHandler(Filters.text, flights)]
         },
 
         fallbacks=[CommandHandler('cancel', cancel)]
     )
 
-    dp.add_handler(conv_handler)
+    # dp.add_handler(conv_handler)
     dp.add_handler(conv_select_route)
 
     # on different commands - answer in Telegram
