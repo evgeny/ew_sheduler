@@ -109,11 +109,11 @@ def destination_btn_callback(update, context):
 
     query.message.reply_text(f"Your destination station is {query.data}. Please choose the week you want to travel in")
 
-    # return WEEK_QUERY
-    select_week(query.message, context)
+    return WEEK_QUERY
+    # select_week(query.message, context)
 
 
-def select_week(message, context):
+def select_week(update, context):
     departure = context.user_data['departure']
     destination = context.user_data['destination']
 
@@ -121,7 +121,7 @@ def select_week(message, context):
     reply_keyboard = []
     for week in weeks:
         reply_keyboard.append([f"{week['fromDateString']} {week['toDateString']}"])
-    message.reply_text("You,ve choose flight %s-%s. "
+    update.message.reply_text("You,ve choose flight %s-%s. "
                               "Next select the week you want flight at." % (departure, destination),
                               reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
                                                                one_time_keyboard=True))
@@ -137,13 +137,13 @@ def week(update, context):
 
 
 def flights(update, context):
-    origin = context.user_data['origin']
+    departure = context.user_data['departure']
     destination = context.user_data['destination']
     week_days = context.user_data['week'].split(' ')
 
-    logger.info("user select origin=%s and destination=%s", origin, destination)
+    logger.info("user select origin=%s and destination=%s", departure, destination)
 
-    flights = get_flights_by_day(origin, destination, week_days[0], week_days[1])
+    flights = get_flights_by_day(departure.split(',')[1], destination.split(',')[1], week_days[0], week_days[1])
     # TODO short list used for testing
     for flight in flights[:3]:
         update.message.reply_text(create_replay(flight))
