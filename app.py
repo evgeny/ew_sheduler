@@ -109,8 +109,8 @@ def destination_btn_callback(update, context):
 
     query.message.reply_text(f"Your destination station is {query.data}. Please choose the week you want to travel in")
 
+# TODO set the correct state but still waiting for input to invoke select_week method
     return WEEK_QUERY
-    # select_week(query.message, context)
 
 
 def select_week(update, context):
@@ -146,7 +146,9 @@ def flights(update, context):
     flights = get_flights_by_day(departure.split(',')[1], destination.split(',')[1], week_days[0], week_days[1])
     # TODO short list used for testing
     for flight in flights[:3]:
-        update.message.reply_text(create_replay(flight))
+        update.message.reply_text(create_replay(departure, destination, flight), parse_mode=telegram.ParseMode.MARKDOWN)
+
+    return ConversationHandler.END
 
 
 def cancel(update, context):

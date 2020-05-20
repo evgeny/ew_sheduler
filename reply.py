@@ -2,12 +2,17 @@
 # -*- coding: utf-8 -*-
 
 
-def create_replay(flight):
-    reply = flight['weekDay'] + flight['date'] + '\n'
+def create_replay(departure, destination, flight):
+    departure_tlc = departure.split(',')[1]
+    destination_tlc = destination.split(',')[1]
+    date = flight['date']
+    reply = f"{flight['weekDay']} {date}\n"
     for f in flight['flights']:
-        departure = "🛫" + f['departureTime']
-        arrival = "🛬" + f['arrivalTime']
-        reply += departure + " : " + arrival + '\n'
+        url = f'https://www.eurowings.com/de/buchen/fluege/sparkalender.html?origin={departure_tlc}&adults=1&toDate={date}&destination={destination_tlc}&dateDate={date}'
+        departure_line = "🛫" + f['departureTime']
+        arrival_line = "🛬" + f['arrivalTime']
+        reply += f'[{departure_line} : {arrival_line}]({url})\n'
+
     return reply
 
 
