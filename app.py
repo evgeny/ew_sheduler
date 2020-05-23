@@ -107,13 +107,6 @@ def destination_btn_callback(update, context):
     # reply_keyboard = [[InlineKeyboardButton('Change departure', callback_data=str(DEPARTURE_CONV_BTN_CHANGE))],
     #                   [InlineKeyboardButton('Cancel', callback_data=str(DEPARTURE_CONV_CANCEL))]]
 
-    query.message.reply_text(f"Your destination station is {query.data}. Please choose the week you want to travel in")
-
-# TODO set the correct state but still waiting for input to invoke select_week method
-    return WEEK_QUERY
-
-
-def select_week(update, context):
     departure = context.user_data['departure']
     destination = context.user_data['destination']
 
@@ -121,7 +114,7 @@ def select_week(update, context):
     reply_keyboard = []
     for week in weeks:
         reply_keyboard.append([f"{week['fromDateString']} {week['toDateString']}"])
-    update.message.reply_text("You,ve choose flight %s-%s. "
+    update.callback_query.message.reply_text("You,ve choose flight %s-%s. "
                               "Next select the week you want flight at." % (departure, destination),
                               reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
                                                                one_time_keyboard=True))
@@ -182,7 +175,6 @@ def init():
             ORIGIN_QUERY: [MessageHandler(Filters.text, find_origin), CallbackQueryHandler(departure_btn_callback)],
             DESTINATION_QUERY: [MessageHandler(Filters.text, find_destination),
                                 CallbackQueryHandler(destination_btn_callback)],
-            WEEK_QUERY: [MessageHandler(Filters.text, select_week)],
             WEEK: [MessageHandler(Filters.text, week)],
             FLIGHTS: [MessageHandler(Filters.text, flights)]
         },
