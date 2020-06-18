@@ -47,7 +47,12 @@ def select_origin(update, context):
 
 def find_origin(update, context):
     stations = fetch_stations(update.message.text)
+    logger.info(f"found {len(stations)} stations for '{update.message.text}' query")
     reply_keyboard = []
+    if len(stations) == 0:
+        update.message.reply_text(f"No stations found, try again")
+        return ORIGIN_QUERY
+
     for station in stations:
         reply_keyboard.append(
             [InlineKeyboardButton(text=f"{station['label']}", callback_data=f"{station['label']},{station['value']}")])
@@ -88,6 +93,11 @@ def find_destination(update, context):
 
     # update.message.reply_text(f"departure={departure}, destination query={query}")
     stations = fetch_destination_stations(departure.split(',')[1], query)
+    logger.info(f"found {len(stations)} stations for '{update.message.text}' query and departure '{departure}'")
+    if len(stations) == 0:
+        update.message.reply_text(f"No stations found, try again")
+        return DESTINATION_QUERY
+
     reply_keyboard = []
     for station in stations:
         reply_keyboard.append(
@@ -103,19 +113,15 @@ def destination_btn_callback(update, context):
     context.user_data['destination'] = query.data
     query.answer()
 
-    # show user next steps
-    # reply_keyboard = [[InlineKeyboardButton('Change departure', callback_data=str(DEPARTURE_CONV_BTN_CHANGE))],
-    #                   [InlineKeyboardButton('Cancel', callback_data=str(DEPARTURE_CONV_CANCEL))]]
-
     departure = context.user_data['departure']
     destination = context.user_data['destination']
 
     weeks = fetch_weeks(departure.split(',')[1], destination.split(',')[1])
     reply_keyboard = []
     for week in weeks:
-        reply_keyboard.append([f"{week['fromDateString']} {week['toDateString']}"])
-    update.callback_query.message.reply_text("You,ve choose flight %s-%s. "
-                              "Next select the week you want flight at." % (departure, destination),
+        reply_keyboard.append([f"{week['fromDateString']} - {week['toDateString']}"])
+    update.callback_query.message.reply_text("You selected flight %s-%s. "
+                              "Please select the week you attend to flight at" % (departure, destination),
                               reply_markup=ReplyKeyboardMarkup(reply_keyboard, resize_keyboard=True,
                                                                one_time_keyboard=True))
     return WEEK
